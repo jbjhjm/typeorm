@@ -68,8 +68,10 @@ export class OneToManySubjectBuilder {
 		const relatedEntityDatabaseRelationIdsToEntityMap = new Map();
 
 		if (subject.databaseEntity) { // related entities in the database can exist only if this entity (post) is saved
+
+			// relation.getEntityValue will not return the full entity data here! Only the key data is available.
 			// relation.getEntityValue can sometimes return undefined which is against stated type. let falsy return values fall back to [].
-            relatedEntityDatabaseValues = relation.getEntityValue(subject.databaseEntity) || [];
+			relatedEntityDatabaseValues = relation.getEntityValue(subject.databaseEntity) || [];
 
 			relatedEntityDatabaseRelationIds = relatedEntityDatabaseValues.map(entityData=> { 
 				const relationIdMap = relation.inverseEntityMetadata.getEntityIdMap(entityData) as ObjectLiteral;
@@ -182,6 +184,8 @@ export class OneToManySubjectBuilder {
                     identifier: removedRelatedEntityRelationId,
               	});
 
+				// Warning: This is not the FULL entity. 
+				// relatedEntityDatabaseRelationIdsToEntityMap is filled by relation.getEntityValue which returns only the key data of the item.
 				removedRelatedEntitySubject.databaseEntity = relatedEntityDatabaseRelationIdsToEntityMap.get(removedRelatedEntityRelationId);
 
                 if (!relation.inverseRelation || relation.inverseRelation.orphanedRowAction === "nullify") {
