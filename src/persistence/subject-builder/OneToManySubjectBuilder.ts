@@ -64,10 +64,17 @@ export class OneToManySubjectBuilder {
 		// to handle such situations, we pass the data to relation.inverseEntityMetadata.getEntityIdMap to extract the key without any other properties.
 
         let relatedEntityDatabaseRelationIds: ObjectLiteral[] = [];
+		const relatedEntityDatabaseRelationIdsToEntityMap = new Map();
+
         if (subject.databaseEntity) { // related entities in the database can exist only if this entity (post) is saved
-            const relatedEntityDatabaseRelation: ObjectLiteral[] | undefined = relation.getEntityValue(subject.databaseEntity)
+            const relatedEntityDatabaseRelation: ObjectLiteral[] | undefined = relation.getEntityValue(subject.databaseEntity);
+			
             if (relatedEntityDatabaseRelation) {
-                relatedEntityDatabaseRelationIds = relatedEntityDatabaseRelation.map((entity) => relation.inverseEntityMetadata.getEntityIdMap(entity)!);
+				relatedEntityDatabaseRelationIds = relatedEntityDatabaseRelation.map(entityData=> { 
+					const relationIdMap = relation.inverseEntityMetadata.getEntityIdMap(entityData) as ObjectLiteral;
+					relatedEntityDatabaseRelationIdsToEntityMap.set(relationIdMap,entityData);
+					return relationIdMap;
+				});
             }
         }
 
@@ -175,6 +182,10 @@ export class OneToManySubjectBuilder {
 						parentSubject: subject,
 						identifier: removedRelatedEntityRelationId,
 					});
+
+					// Warning: This is not the FULL entity. 
+					// relatedEntityDatabaseRelationIdsToEntityMap is filled by relation.getEntityValue which returns only the key data of the item.
+					removedRelatedEntitySubject.databaseEntity = relatedEntityDatabaseRelationIdsToEntityMap.get(removedRelatedEntityRelationId);
 
 					if (!relation.inverseRelation || relation.inverseRelation.orphanedRowAction === "nullify") {
 						removedRelatedEntitySubject.canBeUpdated = true;
