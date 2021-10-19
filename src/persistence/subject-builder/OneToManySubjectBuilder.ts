@@ -65,12 +65,18 @@ export class OneToManySubjectBuilder {
 		// var relatedEntityDatabaseRelationIds does now contain real relationIds.
         let relatedEntityDatabaseValues: ObjectLiteral[] = [];
         let relatedEntityDatabaseRelationIds: ObjectLiteral[] = [];
-        if (subject.databaseEntity) { // related entities in the database can exist only if this entity (post) is saved
+		const relatedEntityDatabaseRelationIdsToEntityMap = new Map();
+
+		if (subject.databaseEntity) { // related entities in the database can exist only if this entity (post) is saved
+
+			// relation.getEntityValue will not return the full entity data here! Only the key data is available.
 			// relation.getEntityValue can sometimes return undefined which is against stated type. let falsy return values fall back to [].
-            relatedEntityDatabaseValues = relation.getEntityValue(subject.databaseEntity) || [];
+			relatedEntityDatabaseValues = relation.getEntityValue(subject.databaseEntity) || [];
 
 			relatedEntityDatabaseRelationIds = relatedEntityDatabaseValues.map(entityData=> { 
-				return relation.inverseEntityMetadata.getEntityIdMap(entityData) as ObjectLiteral
+				const relationIdMap = relation.inverseEntityMetadata.getEntityIdMap(entityData) as ObjectLiteral;
+				relatedEntityDatabaseRelationIdsToEntityMap.set(relationIdMap,entityData);
+				return relationIdMap;
 			});
 		}
 
@@ -85,6 +91,7 @@ export class OneToManySubjectBuilder {
         // extract only relation ids from the related entities, since we only need them for comparision
         // by example: extract from categories only relation ids (category id, or let's say category title, depend on join column options)
         const relatedPersistedEntityRelationIds: ObjectLiteral[] = [];
+
         relatedEntities.forEach(relatedEntity => { // by example: relatedEntity is a category here
             let relationIdMap = relation.inverseEntityMetadata!.getEntityIdMap(relatedEntity); // by example: relationIdMap is category.id map here, e.g. { id: ... }
 
@@ -169,8 +176,7 @@ export class OneToManySubjectBuilder {
 			EntityMetadata
 				.difference(relatedEntityDatabaseRelationIds, relatedPersistedEntityRelationIds)
 				.forEach(removedRelatedEntityRelationId => { // by example: removedRelatedEntityRelationId is category that was bind in the database before, but now its unbind
-	
-					// todo: probably we can improve this in the future by finding entity with column those values,
+
 					// todo: maybe it was already in persistence process. This is possible due to unique requirements of join columns
 					// we create a new subject which operations will be executed in subject operation executor
 					const removedRelatedEntitySubject = new Subject({
@@ -178,7 +184,11 @@ export class OneToManySubjectBuilder {
 						parentSubject: subject,
 						identifier: removedRelatedEntityRelationId,
 					});
-	
+
+					// Warning: This is not the FULL entity. 
+					// relatedEntityDatabaseRelationIdsToEntityMap is filled by relation.getEntityValue which returns only the key data of the item.
+					removedRelatedEntitySubject.databaseEntity = relatedEntityDatabaseRelationIdsToEntityMap.get(removedRelatedEntityRelationId);
+
 					if (!relation.inverseRelation || relation.inverseRelation.orphanedRowAction === "nullify") {
 						removedRelatedEntitySubject.canBeUpdated = true;
 						removedRelatedEntitySubject.changeMaps = [{
@@ -188,7 +198,7 @@ export class OneToManySubjectBuilder {
 					} else if (relation.inverseRelation.orphanedRowAction === "delete") {
 						removedRelatedEntitySubject.mustBeRemoved = true;
 					}
-	
+
 					this.subjects.push(removedRelatedEntitySubject);
 				});
 		}
