@@ -1,6 +1,7 @@
 import {
     closeTestingConnections,
     createTestingConnections,
+    reloadTestingDatabases,
 } from "../../utils/test-utils"
 import { expect } from "chai"
 import { MockSubscriber } from "./subscribers/MockSubscriber"
@@ -21,7 +22,7 @@ describe("github issues > #6573 bugfix-missing-entity-data-in-before-remove", ()
                 dropSchema: true,
             })),
     )
-
+    beforeEach(() => reloadTestingDatabases(connections))
     after(() => closeTestingConnections(connections))
 
     function insertTestData(connection: DataSource) {
